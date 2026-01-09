@@ -46,6 +46,6 @@ function handleDrawEvent()
     ctx.fillRect(0, 0, 400, 400);
     var x1 = document.getElementById('v1').value;
     var y1 = document.getElementById('y1').value;
-    var v1 = Vector3([x1,y1,0]);
+    var v1 = new Vector3([x1,y1,0]);
     drawVector(v1,"red")
 }
