@@ -46,7 +46,7 @@ function handleDrawEvent()
     var ctx = canvas.getContext('2d');
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, 400, 400);
-    var getx1 = document.getElementById('v1').value;
+    var getx1 = document.getElementById('x1').value;
     var gety1 = document.getElementById('y1').value;
 
     var x1 = parseFloat(getx1)
