@@ -42,6 +42,8 @@ function drawVector(v,color)
 }
 function handleDrawEvent()
 {
+    var canvas = document.getElementById('example');
+    var ctx = canvas.getContext('2d');
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, 400, 400);
     var x1 = document.getElementById('v1').value;
