@@ -47,5 +47,5 @@ function handleDrawEvent()
     var x1 = document.getElementById('v1').value;
     var y1 = document.getElementById('y1').value;
     var v1 = Vector3([x1,y1,0]);
-    drawVector(v1)
+    drawVector(v1,"red")
 }
