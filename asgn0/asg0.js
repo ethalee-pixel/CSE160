@@ -44,8 +44,14 @@ function handleDrawEvent()
 {
     var canvas = document.getElementById('example');
     var ctx = canvas.getContext('2d');
-    var x1 = document.getElementById('v1').value;
-    var y1 = document.getElementById('y1').value;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, 400, 400);
+    var getx1 = document.getElementById('v1').value;
+    var gety1 = document.getElementById('y1').value;
+
+    var x1 = parseFloat(getx1)
+    var y1 = parseFloat(gety1)
+
     var v1 = new Vector3([x1,y1,0]);
     drawVector(v1,"red")
 }
