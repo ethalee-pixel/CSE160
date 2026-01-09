@@ -54,4 +54,13 @@ function handleDrawEvent()
 
     var v1 = new Vector3([x1,y1,0]);
     drawVector(v1,"red")
+
+    var getx2 = document.getElementById('x2').value;
+    var gety2 = document.getElementById('y2').value;
+
+    var x1 = parseFloat(getx2)
+    var y1 = parseFloat(gety2)
+
+    var v2 = new Vector3([x2,y2,0]);
+    drawVector(v2,"blue");
 }
