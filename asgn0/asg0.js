@@ -14,6 +14,11 @@ ctx.fillRect(0, 0, 400, 400); // Fill a rectangle with the color
 
 var v1 = new Vector3([2.25,2.25,0]);
 drawVector(v1,"red")
+const clickedDraw = document.getElementById('Draw')
+if(clickedDraw)
+{
+    handleDrawEvent()
+}
 } 
 
 function drawVector(v,color)
@@ -34,4 +39,13 @@ function drawVector(v,color)
     ctx.lineTo(200 + newX, 200 - newY);
     ctx.stroke();
 
+}
+function handleDrawEvent()
+{
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, 400, 400);
+    var x1 = document.getElementById('v1').value;
+    var y1 = document.getElementById('y1').value;
+    var v1 = Vector3([x1,y1,0]);
+    drawVector(v1)
 }
