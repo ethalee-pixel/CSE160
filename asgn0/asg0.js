@@ -89,7 +89,7 @@ function handleDrawOperationEvent()
     var y2 = parseFloat(gety2)
 
     var v2 = new Vector3([x2,y2,0]);
-    drawVector(v2,"blue");
+
     if(operation == "add")
     {
         var additionVector = new Vector3(v1.elements);
@@ -120,4 +120,6 @@ function handleDrawOperationEvent()
         drawVector(multiplicationVector1,"green")
         drawVector(multiplicationVector2,"green")
     }
+        drawVector(v2,"blue");
+
 }
