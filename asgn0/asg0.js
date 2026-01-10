@@ -64,7 +64,7 @@ function handleDrawEvent()
     var v2 = new Vector3([x2,y2,0]);
     drawVector(v2,"blue");
 }
-function handleDrawOperation()
+function handleDrawOperationEvent()
 {
     var canvas = document.getElementById('example');
     var ctx = canvas.getContext('2d');
@@ -80,7 +80,7 @@ function handleDrawOperation()
 
     var v1 = new Vector3([x1,y1,0]);
     drawVector(v1,"red")
-
+    drawVector(v2,"blue");
     var getx2 = document.getElementById('x2').value;
     var gety2 = document.getElementById('y2').value;
     var getScalar = document.getElementById('scalar').value;
@@ -121,5 +121,4 @@ function handleDrawOperation()
         drawVector(multiplicationVector1,"green")
         drawVector(multiplicationVector2,"green")
     }
-    drawVector(v2,"blue");
 }
