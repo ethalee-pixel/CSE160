@@ -80,6 +80,7 @@ function handleDrawOperationEvent()
 
     var v1 = new Vector3([x1,y1,0]);
     drawVector(v1,"red")
+
     var getx2 = document.getElementById('x2').value;
     var gety2 = document.getElementById('y2').value;
     var getScalar = document.getElementById('scalar').value;
@@ -120,6 +121,5 @@ function handleDrawOperationEvent()
         drawVector(multiplicationVector1,"green")
         drawVector(multiplicationVector2,"green")
     }
-        drawVector(v2,"blue");
-
+    drawVector(v2,"blue");
 }
