@@ -156,7 +156,7 @@ function handleDrawOperationEvent()
     else if(operation == "angle")
     {
         var angleBetweenVectors = angleBetween(v1,v2);
-        console.log(angleBetweenVectors);
+        console.log("Angle between: ", angleBetweenVectors);
     }
     else if(operation == "area")
     {
