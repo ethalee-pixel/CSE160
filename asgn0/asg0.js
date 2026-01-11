@@ -20,7 +20,23 @@ if(clickedDraw)
     handleDrawEvent()
 }
 } 
+function angleBetween(v1,v2)
+{
+    if(v1.magnitude() == 0 || v2.magnitude() == 0)
+    {
+        return 0;
+    }
+    var formulaForAngle = Math.acos(Math.max(-1,Math.min(1,Vector3.dot(v1,v2)/(v1.magnitude() * v2.magnitude())))) * (180 / Math.PI)
+    return formulaForAngle;
+}
 
+function areaTriangle(v1,v2)
+{
+    var crossVector = Vector3.cross(v1,v2);
+    var crossVectorMagnitude = crossVector.magnitude();
+    var area = crossVectorMagnitude/2;
+    return area;
+}
 function drawVector(v,color)
 {
     var canvas = document.getElementById('example');
@@ -120,5 +136,31 @@ function handleDrawOperationEvent()
         multiplicationVector2.mul(scalar);
         drawVector(multiplicationVector1,"green")
         drawVector(multiplicationVector2,"green")
+    }
+    else if(operation == "mag")
+    {
+        var magnitudeVector1 = v1.magnitude();
+        var magnitudeVector2 = v2.magnitude();
+        console.log("Magnitude v1: ", magnitudeVector1);
+        console.log("Magnitude v2: ", magnitudeVector2);
+    }
+    else if(operation == "norm")
+    {
+        var normalizeVector1 = new Vector3(v1.elements);
+        var normalizeVector2 = new Vector3(v2.elements);
+        normalizeVector1.normalize();
+        normalizeVector2.normalize();
+        drawVector(normalizeVector1,"green");
+        drawVector(normalizeVector2,"green");
+    }
+    else if(operation == "angle")
+    {
+        var angleBetweenVectors = angleBetween(v1,v2);
+        console.log(angleBetweenVectors);
+    }
+    else if(operation == "area")
+    {
+        var area = areaTriangle(v1,v2);
+        console.log("Triangle area: ", area);
     }
 }
