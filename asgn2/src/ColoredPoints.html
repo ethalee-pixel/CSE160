@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>3D Animated Dog</title>
+    <style>
+      #fps {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        z-index: 100;
+      }
+    </style>
+  </head>
+
+  <body onload="main()">
+    <canvas id="webgl" width="400" height="400">
+      Please use a browser that supports "canvas"
+    </canvas>
+    
+    <!-- FPS Display -->
+    <div id="fps">FPS: -- | Mode: --</div>
+    
+    <!-- Remove or update the <p id="numdot">XXX</p> line since it's not needed -->
+    
+    <p>
+      Camera Angle <input type="range" min="-180" max="180" value="-150" class="slider" id="angleSlide">
+      Leg Movement <input type="range" min="-10" max="5" value="0" class="slider" id="magentaSlide">
+      Tail Wag <input type="range" min="0" max="2" value="0" class="slider" id="yellowSlide">
+      <!-- Optional: Add jaw slider later -->
+      <!-- <input type="range" min="0" max="30" value="0" class="slider" id="jawSlide"> Jaw Open -->
+    </p>
+
+    <p>
+      <button type="button" id="animationYellowOnButton">ANIMATION ON</button>
+      <button type="button" id="animationYellowOffButton">ANIMATION OFF</button>
+    </p>
+    
+    <p><strong>Controls:</strong> Drag to rotate camera | Shift+Click to change animation mode</p>
+    <p> Ethan Lee,
+       ethalee@ucsc.edu,
+      Notes to grader: Nose is the third level joint (connected to the head and snout)
+    </p>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/cuon-matrix-cse160.js"></script>
+    <script src="Triangle.js"></script>
+    <script src="Circle.js"></script>
+    <script src="Point.js"></script>
+    <script src="Cube.js"></script>
+    <script src="Sphere.js"></script>
+    <script src="ColoredPoints.js"></script>
+  </body>
+</html>
