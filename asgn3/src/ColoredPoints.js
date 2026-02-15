@@ -1,4 +1,4 @@
-import { Camera } from "./camera.js";
+import { Camera } from "./Camera.js";
 import { Cube } from "./Cube.js";
 import { drawAnimal } from "./Animal.js";
 
@@ -571,3 +571,4 @@ function drawCollectibles() {
 
 // start
 main();
+
