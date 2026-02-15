@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Virtual World</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #111;
+  color: #ddd;
+  font-family: system-ui, Arial, sans-serif;
+}
+
+/* HUD */
+#hud {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.55);
+  padding: 10px 12px;
+  border-radius: 10px;
+  z-index: 1000;
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+#canvas-container {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+canvas {
+  display: block;
+  outline: none;
+}
+
+#crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+}
+
+#crosshair::before { width: 18px; height: 2px; }
+#crosshair::after  { width: 2px;  height: 18px; }
+</style>
+</head>
+
+<body>
+
+<div id="hud">
+  <div id="fps">FPS: --</div>
+  <div id="keys">Level 1 | Balls: 0/3</div>
+  <div id="msg">Find the 3 balls!</div>
+  Ethan Lee
+  ethalee@ucsc.edu
+  Notes to Grader:
+  - Level system (0 to 1)
+  - Game is to find all 3 balls on the random maps
+  - Can press space to jump
+  - Z to remove blocks, R to add blocks
+</div>
+
+<div id="canvas-container">
+  <canvas id="webgl" width="900" height="600"></canvas>
+  <div id="crosshair"></div>
+</div>
+
+<script src="../lib/cuon-utils.js"></script>
+<script src="../lib/webgl-utils.js"></script>
+<script src="../lib/webgl-debug.js"></script>
+<script src="../lib/cuon-matrix-cse160.js"></script>
+
+<script type="module" src="ColoredPoints.js"></script>
+</body>
+</html>
