@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Assignment 5 - Lighting + Normals</title>
+
+<style>
+  body { margin: 0; overflow: hidden; background: #111; color: #ddd; font-family: system-ui, Arial, sans-serif; }
+
+  #hud {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.55);
+    padding: 10px 12px;
+    border-radius: 10px;
+    z-index: 1000;
+    line-height: 1.45;
+    font-size: 14px;
+    max-width: 380px;
+  }
+
+  #controls { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.15); }
+
+  .row { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; margin: 6px 0; }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+  button {
+    cursor: pointer;
+    background: rgba(255,255,255,0.10);
+    color: #ddd;
+    border: 1px solid rgba(255,255,255,0.20);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  button:hover { background: rgba(255,255,255,0.16); }
+  input[type="range"] { width: 100%; }
+
+  #canvas-container { position: relative; width: fit-content; margin: 0 auto; }
+  canvas { display: block; outline: none; }
+
+  #crosshair {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  #crosshair::before, #crosshair::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 2px;
+    background: rgba(255,255,255,0.65);
+    transform: translate(-50%, -50%);
+    border-radius: 2px;
+  }
+  #crosshair::after { width: 2px; height: 18px; }
+</style>
+</head>
+
+<body>
+  <div id="hud">
+    <div id="keys">WASD move • Mouse look • Space up • Shift down</div>
+    <div id="msg">Click canvas to lock mouse</div>
+    <div id="name">Name: Ethan Lee</div>
+    <div id="email">Name: ethalee@ucsc.edu</div>
+    <div id="notes">Notes to grader:</div>
+    <div id="notemsg">Point light is the cube that is flying</div>
+    <div id="fps">FPS: --</div>
+
+    <div id="controls">
+      <div class="btnrow">
+        <button id="btnLighting">Lighting: ON</button>
+        <button id="btnNormals">Show Normals: OFF</button>
+        <button id="btnPoint">Point Light: ON</button>
+        <button id="btnSpot">Spot Light: ON</button>
+        <button id="btnAnim">Animate Light: ON</button>
+      </div>
+
+      <div class="row"><div>Point Light X</div><input id="lx" type="range" min="-10" max="40" step="0.1" value="8"></div>
+      <div class="row"><div>Point Light Y</div><input id="ly" type="range" min="0" max="10" step="0.1" value="4"></div>
+      <div class="row"><div>Point Light Z</div><input id="lz" type="range" min="-10" max="40" step="0.1" value="8"></div>
+
+      <div class="row"><div>Light Color R</div><input id="lr" type="range" min="0" max="1" step="0.01" value="1.0"></div>
+      <div class="row"><div>Light Color G</div><input id="lg" type="range" min="0" max="1" step="0.01" value="1.0"></div>
+      <div class="row"><div>Light Color B</div><input id="lb" type="range" min="0" max="1" step="0.01" value="1.0"></div>
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="webgl" width="900" height="600" tabindex="1"></canvas>
+    <div id="crosshair"></div>
+  </div>
+
+  <script src="../lib/cuon-utils.js"></script>
+  <script src="../lib/webgl-utils.js"></script>
+  <script src="../lib/webgl-debug.js"></script>
+  <script src="../lib/cuon-matrix-cse160.js"></script>
+
+  <script type="module" src="./ColoredPoints.js"></script>
+</body>
+</html>
