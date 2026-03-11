@@ -1,398 +1,573 @@
-// ColoredPoints.js (3D Dog with eyes) 
-// Vertex shader program
-var VSHADER_SOURCE =`
-  attribute vec4 a_Position; 
-  uniform mat4 u_ModelMatrix;
-  uniform mat4 u_GlobalRotateMatrix;
-  void main() { 
-    gl_Position = u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
-  }`;
+import { Camera } from "./camera.js";
+import { Cube } from "./Cube.js";
+import { drawAnimal } from "./Animal.js";
 
-// Fragment shader program
-var FSHADER_SOURCE =
-  `precision mediump float;
-  uniform vec4 u_FragColor;
+// ===== Shaders =====
+const VSHADER_SOURCE = `
+  attribute vec4 a_Position;
+  attribute vec2 a_UV;
+
+  uniform mat4 u_ModelMatrix;
+  uniform mat4 u_ViewMatrix;
+  uniform mat4 u_ProjectionMatrix;
+
+  varying vec2 v_UV;
+
   void main() {
-    gl_FragColor = u_FragColor;
-  }`;
+    gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
+    v_UV = a_UV;
+  }
+`;
+
+const FSHADER_SOURCE = `
+  precision mediump float;
+
+  uniform vec4 u_BaseColor;
+  uniform sampler2D u_Sampler0;
+  uniform sampler2D u_Sampler1;
+  uniform int u_WhichTex;
+  uniform float u_TexColorWeight;
+
+  varying vec2 v_UV;
+
+  void main() {
+    vec4 texColor = (u_WhichTex == 0)
+      ? texture2D(u_Sampler0, v_UV)
+      : texture2D(u_Sampler1, v_UV);
+
+    gl_FragColor = (1.0 - u_TexColorWeight) * u_BaseColor
+                 + u_TexColorWeight * texColor;
+  }
+`;
+
 
 let canvas, gl;
-let a_Position, u_FragColor, u_ModelMatrix, u_GlobalRotateMatrix;
+let a_Position, a_UV;
+let u_ModelMatrix, u_ViewMatrix, u_ProjectionMatrix;
+let u_BaseColor, u_TexColorWeight, u_WhichTex;
+let u_Sampler0, u_Sampler1;
 
-let g_globalAngle = -150;
-let g_shapesList = [];
-let g_headAngle = 0;      // NEW: Head rotation
-let g_tailAngle = 0;      // NEW: Tail wag
-let g_legAngle = 0;       // NEW: Leg movement
-let g_animation = false;  // NEW: Animation toggle
-let g_animationTime = 0;  // NEW: For animation timing
+let camera;
 
-function setUpWebGL() {
-  canvas = document.getElementById('webgl');
-  gl = canvas.getContext("webgl", {preserveDrawingBuffer: true});
-  if (!gl) { console.log('Failed to get the rendering context for WebGL'); return; }
-  gl.enable(gl.DEPTH_TEST);
-}
 
-function connectVariablesToGLSL() {
-  if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) { console.log('Failed to intialize shaders.'); return; }
+let crosshairEl = null;
 
-  a_Position = gl.getAttribLocation(gl.program, 'a_Position');
-  u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');
-  u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
-  u_GlobalRotateMatrix = gl.getUniformLocation(gl.program, 'u_GlobalRotateMatrix');
-  gl.uniformMatrix4fv(u_ModelMatrix,false,new Matrix4().elements);
-}
 
-function addActionsForHTMLUI() {
-  document.getElementById('angleSlide').addEventListener('input', function() {
-    g_globalAngle = this.value; 
-    renderScene();
-  });
+const WORLD_W = 32;
+const WORLD_D = 32;
+let worldMap = Array.from({ length: WORLD_D }, () => Array(WORLD_W).fill(0));
+let wallInstances = []; 
+
+
+const keys = new Set();
+
+
+let lastFpsTime = performance.now();
+let frames = 0;
+
+
+let yVel = 0;
+const GRAVITY = -20.0;
+const JUMP_SPEED = 7.5;
+const PLAYER_HEIGHT = 1.6;
+
+
+let canDoubleJump = true;
+const WALK_SPEED = 6.0;
+const SPRINT_MULT = 1.8;
+const STEP_HEIGHT = 0.6;
+
+
+let health = 100;
+let maxFallSpeed = 0;
+
+
+let levelIndex = 0;       
+let ballsCollected = 0;
+const BALLS_TOTAL = 3;
+let hasWon = false;
+
+
+let collectibles = [];
+
+const LEVELS = [
+  {
+    name: "Level 1",
+    makeMap: () => {
   
-  // Use the existing sliders for dog parts
-  document.getElementById('magentaSlide').addEventListener('input', function() {
-    g_legAngle = this.value; // Head turn
-    renderScene();
-  });
+      for (let z = 0; z < WORLD_D; z++) for (let x = 0; x < WORLD_W; x++) worldMap[z][x] = 0;
+
   
-  document.getElementById('yellowSlide').addEventListener('input', function() {
-    g_tailAngle = this.value; // Tail wag
-    renderScene();
-  });
+      for (let x = 0; x < WORLD_W; x++) {
+        worldMap[0][x] = 2;
+        worldMap[WORLD_D - 1][x] = 2;
+      }
+      for (let z = 0; z < WORLD_D; z++) {
+        worldMap[z][0] = 2;
+        worldMap[z][WORLD_W - 1] = 2;
+      }
+
+   
+      for (let z = 6; z < 14; z++) {
+        for (let x = 6; x < 14; x++) {
+          if ((x + z) % 2 === 0) worldMap[z][x] = 1 + ((x * z) % 4);
+        }
+      }
+
   
-  // Use existing buttons for animation
-  document.getElementById('animationYellowOnButton').addEventListener('click', function() {
-    g_animation = true;
-  });
+      for (let z = 10; z < 26; z++) worldMap[z][18] = 3;
+      for (let x = 20; x < 28; x++) worldMap[20][x] = 4;
+      for (let z = 18; z < 26; z++) worldMap[z][27] = 4;
+    },
+    balls: [
+      { x: 6.5,  y: 0.25, z: 6.5  },
+      { x: 24.5, y: 0.25, z: 11.5 },
+      { x: 12.5, y: 0.25, z: 26.5 },
+    ],
+    spawn: { x: 2.5, z: 2.5 },
+  },
+
+  {
+    name: "Level 2",
+    makeMap: () => {
+
+      for (let z = 0; z < WORLD_D; z++) for (let x = 0; x < WORLD_W; x++) worldMap[z][x] = 0;
+
   
-  document.getElementById('animationYellowOffButton').addEventListener('click', function() {
-    g_animation = false;
-  });
-}
+      for (let x = 0; x < WORLD_W; x++) {
+        worldMap[0][x] = 3;
+        worldMap[WORLD_D - 1][x] = 3;
+      }
+      for (let z = 0; z < WORLD_D; z++) {
+        worldMap[z][0] = 3;
+        worldMap[z][WORLD_W - 1] = 3;
+      }
+
+ 
+      for (let z = 2; z < WORLD_D - 2; z++) {
+        for (let x = 2; x < WORLD_W - 2; x++) {
+          if (x % 2 === 0 && z % 2 === 0) {
+            worldMap[z][x] = 2;
+            if (x + 1 < WORLD_W - 1) worldMap[z][x + 1] = 1;
+            if (z + 1 < WORLD_D - 1) worldMap[z + 1][x] = 1;
+          }
+        }
+      }
+
+      // landmark pillar
+      for (let z = 14; z <= 18; z++) {
+        for (let x = 14; x <= 18; x++) worldMap[z][x] = 4;
+      }
+
+      // carve corridors
+      for (let x = 2; x < WORLD_W - 2; x++) worldMap[8][x] = 0;
+      for (let z = 2; z < WORLD_D - 2; z++) worldMap[z][23] = 0;
+    },
+    balls: [
+      { x: 4.5,  y: 0.25, z: 27.5 },
+      { x: 28.5, y: 0.25, z: 4.5  },
+      { x: 23.5, y: 0.25, z: 23.5 },
+    ],
+    spawn: { x: 2.5, z: 2.5 },
+  },
+];
+
 
 function main() {
-  setUpWebGL();
-  connectVariablesToGLSL();
-  addActionsForHTMLUI();
-  addMouseControl();
-  gl.clearColor(0.9,0.9,1.0,1.0);
+  canvas = document.getElementById("webgl");
+  gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+  if (!gl) {
+    console.log("Failed to get WebGL context");
+    return;
+  }
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.clearColor(0.6, 0.8, 1.0, 1.0);
+
+  if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    console.log("Failed to init shaders");
+    return;
+  }
+
+  connectGLSL();
+  Cube.init(gl, a_Position, a_UV);
+
+  camera = new Camera(canvas);
+
+  initTextures();
+
+
+  loadLevel(0);
+
+  addInput();
+
+  crosshairEl = document.getElementById("crosshair");
+  updateHUD();
 
   requestAnimationFrame(tick);
 }
-// Add to global variables
-let g_frameCount = 0;
-let g_lastTime = 0;
-let g_fps = 0;
-let g_headBob = 0;
-function tick() {
-  // Calculate FPS
-  g_frameCount++;
-  let currentTime = performance.now();
-  if (currentTime - g_lastTime >= 1000) {
-    g_fps = g_frameCount;
-    g_frameCount = 0;
-    g_lastTime = currentTime;
-    
-    if (document.getElementById('fps')) {
-      document.getElementById('fps').innerHTML = `FPS: ${g_fps} | Mode: ${g_animationMode}`;
-    }
-    
-    // Log if FPS drops below 10
-    if (g_fps < 10) {
-      console.warn(`Low FPS: ${g_fps}. Consider optimizing.`);
+
+function connectGLSL() {
+  a_Position = gl.getAttribLocation(gl.program, "a_Position");
+  a_UV = gl.getAttribLocation(gl.program, "a_UV");
+
+  u_ModelMatrix = gl.getUniformLocation(gl.program, "u_ModelMatrix");
+  u_ViewMatrix = gl.getUniformLocation(gl.program, "u_ViewMatrix");
+  u_ProjectionMatrix = gl.getUniformLocation(gl.program, "u_ProjectionMatrix");
+
+  u_BaseColor = gl.getUniformLocation(gl.program, "u_BaseColor");
+  u_TexColorWeight = gl.getUniformLocation(gl.program, "u_TexColorWeight");
+  u_WhichTex = gl.getUniformLocation(gl.program, "u_WhichTex");
+
+  u_Sampler0 = gl.getUniformLocation(gl.program, "u_Sampler0");
+  u_Sampler1 = gl.getUniformLocation(gl.program, "u_Sampler1");
+
+  gl.uniformMatrix4fv(u_ModelMatrix, false, new Matrix4().elements);
+}
+
+
+function initTextures() {
+  const imgWalls = new Image();
+  const imgGrass = new Image();
+
+  imgWalls.onload = () => loadTexture(imgWalls, 0, u_Sampler0);
+  imgGrass.onload = () => loadTexture(imgGrass, 1, u_Sampler1);
+
+  imgWalls.src = "walls.jpg";
+  imgGrass.src = "grass.jpg";
+}
+
+function loadTexture(image, unit, samplerLoc) {
+  const tex = gl.createTexture();
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+  gl.uniform1i(samplerLoc, unit);
+}
+
+
+function buildWalls() {
+  wallInstances = [];
+  for (let z = 0; z < WORLD_D; z++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      const h = worldMap[z][x];
+      for (let y = 0; y < h; y++) wallInstances.push({ x, y, z });
     }
   }
-  
-  if (g_animation) {
-    g_animationTime += 1;
-    
-    switch(g_animationMode) {
-      case 0: // Normal walking
-        g_legAngle = Math.sin(g_animationTime * 0.1) * 10;
-        g_headBob = Math.sin(g_animationTime * 0.08) * 0.01;
-        break;
-      case 1: // Excited jumping
-        g_legAngle = Math.sin(g_animationTime * 0.2) * 10;
-        g_headBob = Math.sin(g_animationTime * 0.15) * 0.02;
-        break;
-      case 2: // Sleeping
-        g_legAngle = Math.sin(g_animationTime * 0.05) * 5;
-        g_headBob = Math.sin(g_animationTime * 0.03) * 0.005;
-        break;
+}
+
+
+function loadLevel(idx) {
+  levelIndex = idx;
+  ballsCollected = 0;
+  hasWon = false;
+
+  LEVELS[levelIndex].makeMap();
+  buildWalls();
+
+  collectibles = LEVELS[levelIndex].balls.map(b => ({ ...b, taken: false }));
+
+
+  const sx = LEVELS[levelIndex].spawn.x;
+  const sz = LEVELS[levelIndex].spawn.z;
+  camera.eye.elements[0] = sx;
+  camera.eye.elements[2] = sz;
+  camera.eye.elements[1] = groundHeightAt(sx, sz) + PLAYER_HEIGHT;
+
+  yVel = 0;
+  canDoubleJump = true;
+  maxFallSpeed = 0;
+
+  camera._rebuildAt();
+  camera._rebuildView();
+
+  updateHUD();
+}
+
+function updateHUD() {
+  const keysEl = document.getElementById("keys");
+  const msgEl = document.getElementById("msg");
+
+  if (keysEl) keysEl.textContent = `${LEVELS[levelIndex].name} | Balls: ${ballsCollected}/${BALLS_TOTAL}`;
+
+  if (msgEl) {
+    if (hasWon) msgEl.textContent = "YOU WIN! Press N to restart.";
+    else msgEl.textContent = "Find 3 balls to advance!";
+  }
+}
+
+function checkCollectibles() {
+  if (hasWon) return;
+
+  const px = camera.eye.elements[0];
+  const pz = camera.eye.elements[2];
+
+  for (const c of collectibles) {
+    if (c.taken) continue;
+
+    const dx = px - c.x;
+    const dz = pz - c.z;
+
+    if ((dx * dx + dz * dz) < 0.8 * 0.8) {
+      c.taken = true;
+      ballsCollected++;
+      updateHUD();
+
+      if (ballsCollected >= BALLS_TOTAL) {
+        if (levelIndex + 1 < LEVELS.length) {
+          loadLevel(levelIndex + 1);
+        } else {
+          hasWon = true;
+          updateHUD();
+        }
+      }
     }
   }
-  
+}
+
+
+function cellInFront(dist = 1.2) {
+  const f = new Vector3();
+  f.set(camera.at);
+  f.sub(camera.eye);
+  f.elements[1] = 0;
+  f.normalize();
+
+  const x = Math.floor(camera.eye.elements[0] + f.elements[0] * dist);
+  const z = Math.floor(camera.eye.elements[2] + f.elements[2] * dist);
+  return { x, z };
+}
+
+function addBlock() {
+  const { x, z } = cellInFront();
+  if (x < 0 || x >= WORLD_W || z < 0 || z >= WORLD_D) return;
+  worldMap[z][x] = Math.min(4, worldMap[z][x] + 1);
+  buildWalls();
+}
+
+function deleteBlock() {
+  const { x, z } = cellInFront();
+  if (x < 0 || x >= WORLD_W || z < 0 || z >= WORLD_D) return;
+  worldMap[z][x] = Math.max(0, worldMap[z][x] - 1);
+  buildWalls();
+}
+
+
+function updateCrosshair() {
+  if (!crosshairEl) return;
+
+  const { x, z } = cellInFront(1.2);
+  const inside = (x >= 0 && x < WORLD_W && z >= 0 && z < WORLD_D);
+
+  crosshairEl.classList.remove("valid", "invalid");
+  crosshairEl.classList.add(inside ? "valid" : "invalid");
+}
+
+
+function groundHeightAt(x, z) {
+  const xi = Math.floor(x);
+  const zi = Math.floor(z);
+  if (xi < 0 || xi >= WORLD_W || zi < 0 || zi >= WORLD_D) return 0;
+  return worldMap[zi][xi];
+}
+
+function isOnGround() {
+  const x = camera.eye.elements[0];
+  const z = camera.eye.elements[2];
+  const groundY = groundHeightAt(x, z) + PLAYER_HEIGHT;
+  return Math.abs(camera.eye.elements[1] - groundY) < 0.02 && yVel <= 0;
+}
+
+function tryJump() {
+  if (isOnGround()) {
+    yVel = JUMP_SPEED;
+    canDoubleJump = true;
+    return;
+  }
+  if (canDoubleJump) {
+    yVel = JUMP_SPEED * 0.9;
+    canDoubleJump = false;
+  }
+}
+
+
+function addInput() {
+  document.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    keys.add(k);
+
+    if (k === "r") addBlock();
+    if (k === "f") deleteBlock();
+    if (k === "z") deleteBlock(); // bring back Z delete
+
+    if (k === "n") loadLevel(0); // restart
+
+    if (e.code === "Space") {
+      e.preventDefault();
+      tryJump();
+    }
+  });
+
+  document.addEventListener("keyup", (e) => {
+    keys.delete(e.key.toLowerCase());
+  });
+
+  // pointer lock mouse look
+  canvas.addEventListener("click", () => canvas.requestPointerLock());
+
+  document.addEventListener("mousemove", (e) => {
+    if (document.pointerLockElement !== canvas) return;
+    const sens = 0.15;
+    camera.addYawPitch(e.movementX * sens, -e.movementY * sens);
+  });
+}
+
+let lastTime = performance.now();
+function tick(now) {
+  const dt = (now - lastTime) / 1000.0;
+  lastTime = now;
+
+  handleMovement(dt);
+  applyJumpPhysics(dt);
+  updateCrosshair();
+  checkCollectibles();
   renderScene();
+
+  // fps + health
+  frames++;
+  if (now - lastFpsTime >= 1000) {
+    const fps = frames;
+    frames = 0;
+    lastFpsTime = now;
+    const fpsEl = document.getElementById("fps");
+    if (fpsEl) fpsEl.textContent = `FPS: ${fps} | Health: ${health}`;
+  }
+
   requestAnimationFrame(tick);
 }
+
+function handleMovement(dt) {
+  const sprinting = keys.has("shift");
+  const speed = (sprinting ? WALK_SPEED * SPRINT_MULT : WALK_SPEED) * dt;
+  const turn = 90.0 * dt;
+
+  if (keys.has("w")) camera.moveForward(speed);
+  if (keys.has("s")) camera.moveBackwards(speed);
+  if (keys.has("a")) camera.moveLeft(speed);
+  if (keys.has("d")) camera.moveRight(speed);
+
+  if (keys.has("q")) camera.addYawPitch(-turn, 0);
+  if (keys.has("e")) camera.addYawPitch(turn, 0);
+}
+
+function applyJumpPhysics(dt) {
+  yVel += GRAVITY * dt;
+  if (yVel < maxFallSpeed) maxFallSpeed = yVel;
+
+  camera.eye.elements[1] += yVel * dt;
+
+  const x = camera.eye.elements[0];
+  const z = camera.eye.elements[2];
+  const floorY = groundHeightAt(x, z) + PLAYER_HEIGHT;
+  const currentY = camera.eye.elements[1];
+
+  if (currentY < floorY && (floorY - currentY) <= STEP_HEIGHT && yVel <= 0) {
+    camera.eye.elements[1] = floorY;
+    yVel = 0;
+    canDoubleJump = true;
+    maxFallSpeed = 0;
+  }
+
+  if (camera.eye.elements[1] < floorY) {
+    camera.eye.elements[1] = floorY;
+
+    const impact = -maxFallSpeed;
+    if (impact > 12) {
+      const dmg = Math.min(40, Math.floor((impact - 12) * 3));
+      health = Math.max(0, health - dmg);
+    }
+
+    yVel = 0;
+    canDoubleJump = true;
+    maxFallSpeed = 0;
+  }
+
+  camera._rebuildAt();
+  camera._rebuildView();
+}
+
+function setTextured(whichTex) {
+  gl.uniform1f(u_TexColorWeight, 1.0);
+  gl.uniform1i(u_WhichTex, whichTex);
+  gl.uniform4f(u_BaseColor, 1, 1, 1, 1);
+}
+
+function setSolidColor(r, g, b, a) {
+  gl.uniform1f(u_TexColorWeight, 0.0);
+  gl.uniform4f(u_BaseColor, r, g, b, a);
+}
+
+const tempCube = new Cube(); // reuse one cube for speed
 
 function renderScene() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  let globalRotMat = new Matrix4()
-    .rotate(-15, 1, 0, 0) // tilt camera
-    .rotate(g_globalAngle, 0, 1, 0);
-  gl.uniformMatrix4fv(u_GlobalRotateMatrix,false,globalRotMat.elements);
+  gl.uniformMatrix4fv(u_ViewMatrix, false, camera.viewMatrix.elements);
+  gl.uniformMatrix4fv(u_ProjectionMatrix, false, camera.projectionMatrix.elements);
 
-  drawDog();
+  drawGround();
+  drawSkybox();
+  drawWalls();
+  drawCollectibles();
+
+  setSolidColor(0.76, 0.6, 0.42, 1);
+  drawAnimal(u_ModelMatrix, 12, 0, 12);
 }
 
-// Add to global variables
-let g_mouseDown = false;
-let g_lastMouseX = null;
-let g_lastMouseY = null;
-let g_animationMode = 0; // 0 = normal, 1 = excited, 2 = sleeping
-
-// Update mouse control:
-function addMouseControl() {
-  canvas.onmousedown = function(ev) {
-    g_mouseDown = true;
-    g_lastMouseX = ev.clientX;
-    g_lastMouseY = ev.clientY;
-    
-    // Shift-click for different animation
-    if (ev.shiftKey) {
-      g_animationMode = (g_animationMode + 1) % 3;
-      g_animationTime = 0;
-      console.log("Animation mode:", g_animationMode);
-    }
-  };
-
-  canvas.onmouseup = function() {
-    g_mouseDown = false;
-  };
-
-  canvas.onmousemove = function(ev) {
-    if (!g_mouseDown) return;
-    
-    let x = ev.clientX;
-    let y = ev.clientY;
-    
-    let dx = x - g_lastMouseX;
-    let dy = y - g_lastMouseY;
-    
-    // Rotate based on mouse movement
-    g_globalAngle += dx * 0.5;
-    
-    g_lastMouseX = x;
-    g_lastMouseY = y;
-    
-    renderScene();
-  };
+function drawGround() {
+  setTextured(1);
+  tempCube.matrix.setTranslate(0, -0.5, 0);
+  tempCube.matrix.scale(32, 0.1, 32);
+  tempCube.render(u_ModelMatrix);
 }
 
-function drawDog() {
-  /* ========= CONSTANTS ========= */
-  const BODY_W = 0.9;
-  const BODY_H = 0.35;
-  const BODY_D = 0.4;
-  const HEAD = 0.3;
-  const LEG_H = 0.4;
-  const TAIL_H = 0.35;
-  const BODY_OFFSET_X = -0.15;
-  const NECK_H = 0.4;
-  const NECK_W = 0.3;
-  const NECK_D = 0.3;
+function drawSkybox() {
+  setSolidColor(0.45, 0.70, 1.0, 1.0);
 
-  let breathing = 0;
-  let tailWag = 0;
-  
-  if (g_animation) {
-    breathing = Math.sin(g_animationTime * 0.05) * 0.01;
-    tailWag = Math.sin(g_animationTime * 0.08) * 10;
-  }
-
-  /* ========= DOG ROOT ========= */
-  let dogRoot = new Matrix4();
-  dogRoot.setTranslate(-0.2, -0.2, 0);
-
-  /* ========= BODY ========= */
-  let body = new Cube();
-  body.color = [0.76, 0.6, 0.42, 1];
-  body.matrix = new Matrix4(dogRoot);
-  let bodyBase = new Matrix4(body.matrix);
-  body.matrix.translate(BODY_OFFSET_X - 0.25, breathing, -0.1); // Add breathing
-  body.matrix.scale(BODY_W, BODY_H, BODY_D);
-  body.render();
-
-  /* ========= NECK ========= */
-  let neck = new Cube();
-  neck.color = [0.76, 0.6, 0.42, 1];
-  
-  neck.matrix = new Matrix4(bodyBase);
-  neck.matrix.translate(
-    BODY_W / 2 - NECK_W / 2,
-    BODY_H - 0.15,
-    BODY_D / 2 - NECK_D / 2 - 0.1
-  );
-  let neckBob = 0;
-    if (g_animation) {
-    let neckBob = Math.sin(g_animationTime * 0.07) * 0.02; // Up/down movement
-    neck.matrix.translate(0, neckBob, 0);
-  }
-  
-  let neckTop = new Matrix4(neck.matrix);
-  neckTop.translate(NECK_W / 2, NECK_H, NECK_D);
-  
-  neck.matrix.scale(NECK_W, NECK_H, NECK_D);
-  neck.render();
-
-  /* ========= HEAD ========= */
-  let head = new Cube();
-  head.color = [0.76, 0.6, 0.42, 1];
-  
-  head.matrix = new Matrix4(neckTop);
-  head.matrix.translate(
-    -HEAD / 2,
-    -HEAD / 3,
-    0
-  );
-    if (g_animation) {
-    let headBob = Math.sin(g_animationTime * 0.07) * 0.02; // Up/down movement
-    head.matrix.translate(0, headBob, 0);
-  } 
-
-  let headBase = new Matrix4(head.matrix);
-  head.matrix.scale(HEAD, HEAD, HEAD);
-  head.render();
-
-/* ========= EYES - using SPHERE primitive ========= */ 
-const eyeOffsets = [
-  [0.25, 0.22, HEAD],   // Right eye
-  [0.05, 0.22, HEAD],   // Left eye
-];
-
-eyeOffsets.forEach(offset => {
-  let eye = new Sphere(); // Use Sphere instead of Cube
-  eye.color = [0.1, 0.1, 0.1, 1]; // Dark gray
-  
-  eye.matrix = new Matrix4(headBase);
-  
-  if (g_animation) {
-    let eyeBob = Math.sin(g_animationTime * 0.09 + offset[0]) * 0.01;
-    eye.matrix.translate(0, eyeBob, 0);
-  }
-  
-  eye.matrix.translate(...offset);
-  eye.matrix.scale(0.04, 0.04, 0.04);
-  eye.render();
-});
-
-/* ========= SNOUT (Second Level) ========= */
-let snout = new Cube();
-snout.color = [0.66, 0.5, 0.32, 1];
-
-snout.matrix = new Matrix4(headBase);
-// Position snout relative to head
-snout.matrix.translate(-0.05+0.11, 0.02+0.03, HEAD * 0.8);
-snout.matrix.scale(0.18, 0.12, 0.12);
-
-// Save snout transformation BEFORE rendering
-let snoutBeforeScale = new Matrix4(headBase);
-snoutBeforeScale.translate(-0.05+0.11, 0.02+0.03, HEAD * 0.8);
-// This is the snout's transformation WITHOUT the final scale
-
-snout.render();
-
-/* ========= NOSE (Third Level - CORRECTED) ========= */
-let nose = new Cube();
-nose.color = [0.3, 0.2, 0.1, 1];
-
-// Option 1: Attach to snout BEFORE scale
-nose.matrix = new Matrix4(snoutBeforeScale);
-
-// Position at front of snout (in snout's local coordinates)
-// The snout will be scaled to 0.12 in Z direction, so front is at Z = 0.06
-nose.matrix.translate(0, 0.03, 0.2);
-
-// Apply nose scale (not adjusting for snout scale since we attached before scale)
-nose.matrix.scale(0.1, 0.08, 0.05);
-
-nose.render();
-
-  /* ========= EARS ========= */
-  const earOffsets = [
-    // Right ear
-    {
-      position: [0.25, HEAD * 0.8, HEAD * 0.2],
-      rotation: -20,
-      size: [0.08, 0.15, 0.03]
-    },
-    // Left ear
-    {
-      position: [-0.01, HEAD * 0.8, HEAD * 0.2],
-      rotation: 20,
-      size: [0.08, 0.15, 0.03]
-    }
-  ];
-
-  earOffsets.forEach(ear => {
-    let earCube = new Cube();
-    earCube.color = [0.7, 0.55, 0.37, 1];
-    
-    earCube.matrix = new Matrix4(headBase);
-    earCube.matrix.translate(...ear.position);
-    earCube.matrix.rotate(ear.rotation, 0, 0, 1);
-    earCube.matrix.scale(...ear.size);
-    earCube.render();
-  });
-
-    /* ========= LEGS - STEPPING MOTION ========= */
-  // Positive angle = leg lifts UP (forward step)
-  // Negative angle = leg goes DOWN (backward step)
-  
-  const legAngles = [
-    g_legAngle,      // Front right: UP
-    -g_legAngle,     // Front left: DOWN
-    -g_legAngle,     // Back right: DOWN
-    g_legAngle,      // Back left: UP
-  ];
-
-  const legPositions = [
-    [-BODY_W * 0.3, -BODY_H / 2 - LEG_H / 2, BODY_D * 0.3],   // Front right
-    [-BODY_W * 0.3, -BODY_H / 2 - LEG_H / 2, -BODY_D * 0.3],  // Front left
-    [BODY_W * 0.3, -BODY_H / 2 - LEG_H / 2, BODY_D * 0.3],    // Back right
-    [BODY_W * 0.3, -BODY_H / 2 - LEG_H / 2, -BODY_D * 0.3],   // Back left
-  ];
-
-  for (let i = 0; i < 4; i++) {
-    let leg = new Cube();
-    leg.color = [0.6, 0.4, 0.3, 1];
-    
-    leg.matrix = new Matrix4(bodyBase);
-    leg.matrix.translate(...legPositions[i]);
-    
-    // Lift leg UP (rotate around X-axis at the top)
-    leg.matrix.translate(0, LEG_H/2, 0);          // Pivot at top
-    leg.matrix.rotate(legAngles[i], 1, 0, 0);     // X-axis = up/down
-    leg.matrix.translate(0, -LEG_H/2, 0);         // Move back
-    
-    // Back legs slightly larger
-    const legScale = i >= 2 ? 0.14 : 0.12;
-    leg.matrix.scale(legScale, LEG_H, legScale);
-    
-    leg.render();
-  }
-
-  /* ========= TAIL ========= */
-  let tail = new Cube();
-  tail.color = [0.76, 0.6, 0.42, 1];
-  tail.matrix = new Matrix4(bodyBase);
-  tail.matrix.translate(
-    BODY_OFFSET_X - BODY_W / 2,
-    BODY_H / 4,
-    -0.2
-  );
-  
-  // SECOND LEVEL JOINT: Tail wag (controlled by yellow slider + animation)
-  tail.matrix.rotate(35, 0, 0, 1);
-  
-  tail.matrix.translate(0.2, -0.05, 0.2);
-   tail.matrix.rotate(tailWag+ g_tailAngle, 0, 0, 1);
-  tail.matrix.scale(0.1, TAIL_H, 0.1);
-  tail.render();
+  const S = 200;
+  tempCube.matrix.setTranslate(16 - S / 2, 12 - S / 2, 16 - S / 2);
+  tempCube.matrix.scale(S, S, S);
+  tempCube.render(u_ModelMatrix);
 }
 
+function drawWalls() {
+  setTextured(0);
 
+  for (const w of wallInstances) {
+    tempCube.matrix.setTranslate(w.x, w.y, w.z);
+    tempCube.matrix.scale(1, 1, 1);
+    tempCube.render(u_ModelMatrix);
+  }
+}
 
+function drawCollectibles() {
+  setSolidColor(1.0, 0.85, 0.2, 1.0);
+
+  for (const c of collectibles) {
+    if (c.taken) continue;
+    tempCube.matrix.setTranslate(c.x, c.y, c.z);
+    tempCube.matrix.scale(0.35, 0.35, 0.35);
+    tempCube.render(u_ModelMatrix);
+  }
+}
+
+// start
+main();
