@@ -330,6 +330,40 @@ function addMesh(geometry, material, position, options = {}) {
   return mesh;
 }
 
+function hasPickupClearance(position, clearance = 3.2) {
+  return colliders.every((collider) => {
+    const dx = position.x - collider.position.x;
+    const dz = position.z - collider.position.z;
+    const minDistance = collider.radius + clearance;
+    return dx * dx + dz * dz >= minDistance * minDistance;
+  });
+}
+
+function findSafePickupPosition(position, clearance = 3.2) {
+  if (hasPickupClearance(position, clearance)) {
+    return position.clone();
+  }
+
+  const stepRadius = 2;
+  const maxRings = 8;
+  for (let ring = 1; ring <= maxRings; ring += 1) {
+    const radius = ring * stepRadius;
+    const samples = 16 + ring * 6;
+
+    for (let sample = 0; sample < samples; sample += 1) {
+      const angle = (sample / samples) * Math.PI * 2;
+      const candidate = position.clone();
+      candidate.x = THREE.MathUtils.clamp(position.x + Math.cos(angle) * radius, -worldLimit + 2, worldLimit - 2);
+      candidate.z = THREE.MathUtils.clamp(position.z + Math.sin(angle) * radius, -worldLimit + 2, worldLimit - 2);
+      if (hasPickupClearance(candidate, clearance)) {
+        return candidate;
+      }
+    }
+  }
+
+  return position.clone();
+}
+
 function addTreasure(position, shape = "sphere") {
   const geometry = shape === "octa"
     ? new THREE.OctahedronGeometry(0.8)
@@ -337,8 +371,9 @@ function addTreasure(position, shape = "sphere") {
       ? new THREE.CylinderGeometry(0.45, 0.45, 1.2, 16)
       : new THREE.SphereGeometry(0.7, 24, 24);
 
-  const treasure = addMesh(geometry, treasureMaterial, position.clone(), {
-    animation: { type: "treasure", baseY: position.y, offset: Math.random() * Math.PI * 2 },
+  const safePosition = findSafePickupPosition(position, 3.2);
+  const treasure = addMesh(geometry, treasureMaterial, safePosition, {
+    animation: { type: "treasure", baseY: safePosition.y, offset: Math.random() * Math.PI * 2 },
     normalColor: 0x30c8ff,
   });
   treasures.push(treasure);
@@ -356,8 +391,9 @@ function addVaseCollectible(position, effectType) {
     reveal: { color: 0xd98cff, helperColor: 0xc26cff, rotation: Math.PI * 0.6, animationType: "reveal-powerup" },
   }[effectType];
 
+  const safePosition = findSafePickupPosition(position, 3.1);
   const vase = vasePrototype.clone(true);
-  vase.position.copy(position);
+  vase.position.copy(safePosition);
   vase.scale.setScalar(1.3);
   vase.rotation.y = effectConfig.rotation;
   vase.traverse((child) => {
@@ -374,7 +410,7 @@ function addVaseCollectible(position, effectType) {
   animatedObjects.push({
     mesh: vase,
     type: effectConfig.animationType,
-    baseY: position.y,
+    baseY: safePosition.y,
     offset: effectType === "blackout" ? Math.PI * 0.9 : Math.PI / 3,
   });
   powerups.push({ mesh: vase, collected: false, radius: 2.6, effectType });
@@ -397,8 +433,9 @@ function addRevealVase(position) {
 }
 
 function addPortal(position) {
+  const safePosition = findSafePickupPosition(position, 4.2);
   const group = new THREE.Group();
-  group.position.copy(position);
+  group.position.copy(safePosition);
 
   const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.32, 18, 64), portalMaterial);
   ring.rotation.x = Math.PI / 2;
@@ -427,7 +464,7 @@ function addPortal(position) {
   animatedObjects.push({ mesh: core, type: "portal-core", baseY: 1.2 });
 
   portalState.group = group;
-  portalState.position.copy(position);
+  portalState.position.copy(safePosition);
 }
 
 function addWallRun(startX, endX, z, y = 1.5) {
@@ -617,16 +654,21 @@ function buildLevelOne() {
 }
 
 function buildLevelTwo() {
-  addWallRun(-30, 30, -24);
-  addWallRun(-30, 30, 24);
-  addWallRun(-10, 18, 2);
-  addWallColumn(-6, -20, 8);
-  addWallColumn(18, -12, 20);
-  addWallRun(-26, 10, -10);
-  addWallRun(-18, 26, 14);
-  addWallColumn(-22, -16, 20);
-  addWallColumn(8, -20, 12);
-  addCrateField([[-24, -8], [-18, -2], [-12, 6], [-6, 12], [8, -6], [14, 2], [20, 10], [26, 16]]);
+  addWallRun(-30, -10, -24);
+  addWallRun(10, 30, -24);
+  addWallRun(-30, -18, 24);
+  addWallRun(14, 30, 24);
+  addWallRun(-10, -2, 2);
+  addWallRun(10, 18, 2);
+  addWallColumn(-6, -20, 0);
+  addWallColumn(18, -12, 12);
+  addWallRun(-26, -6, -10);
+  addWallRun(6, 10, -10);
+  addWallRun(-18, -6, 14);
+  addWallRun(10, 26, 14);
+  addWallColumn(-22, -16, 8);
+  addWallColumn(8, -20, 4);
+  addCrateField([[-24, -8], [-18, -2], [-12, 6], [8, -6], [14, 2], [20, 10], [26, 16]]);
   addForestPatch([[-30, 8], [-24, 14], [-18, 20], [18, -16], [24, -10], [30, -4]]);
   addColumnRing(-18, -12, 5.5, 6);
   addColumnRing(18, 12, 5.5, 6);
@@ -646,14 +688,20 @@ function buildLevelTwo() {
 function buildLevelThree() {
   addColumnRing(0, 0, 12, 10);
   addColumnRing(0, 0, 22, 12);
-  addWallRun(-24, 24, 8);
-  addWallRun(-24, 24, -8);
-  addWallRun(-12, 12, 24);
-  addWallRun(-12, 12, -24);
-  addWallColumn(-20, -20, 20);
-  addWallColumn(20, -20, 20);
-  addWallColumn(-8, -28, 28);
-  addWallColumn(8, -28, 28);
+  addWallRun(-24, -16, 8);
+  addWallRun(16, 24, 8);
+  addWallRun(-24, -16, -8);
+  addWallRun(16, 24, -8);
+  addWallRun(-12, -8, 24);
+  addWallRun(8, 12, 24);
+  addWallRun(-12, -8, -24);
+  addWallRun(8, 12, -24);
+  addWallColumn(-20, -20, 16);
+  addWallColumn(20, -20, 16);
+  addWallColumn(-8, -28, -20);
+  addWallColumn(-8, 20, 28);
+  addWallColumn(8, -28, -20);
+  addWallColumn(8, 20, 28);
   addCrateField([[-28, 0], [-22, 8], [-22, -8], [22, 8], [22, -8], [28, 0], [0, 28], [0, -28]]);
   addForestPatch([[-34, 20], [-28, 26], [34, 20], [28, 26], [-34, -20], [34, -20]]);
   addPools([[-12, 12], [12, 12], [-12, -12], [12, -12]]);
