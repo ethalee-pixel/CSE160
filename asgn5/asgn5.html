@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Treasure Shift</title>
+
+<!-- Site link for submission comment: paste your deployed URL here before turning it in. -->
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+:root {
+  --panel: rgba(7, 19, 28, 0.76);
+  --panel-border: rgba(163, 212, 255, 0.28);
+  --accent: #9fe7ff;
+  --text: #eef7ff;
+  --muted: #bfd0dd;
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(28, 70, 104, 0.45), transparent 38%),
+    linear-gradient(180deg, #06121a 0%, #0d1b26 48%, #050a0f 100%);
+  color: var(--text);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+#game-root {
+  width: 100vw;
+  height: 100vh;
+}
+
+canvas {
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 34px var(--shadow);
+  z-index: 10;
+}
+
+#title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#subtitle {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.stat {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+#hint {
+  margin: 12px 0 14px;
+  color: #fff0ba;
+  min-height: 40px;
+  line-height: 1.4;
+}
+
+#launch {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #8ad5ff 0%, #ffe08c 100%);
+  color: #12202c;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#launch:hover {
+  filter: brightness(1.04);
+}
+
+#controls {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 12px rgba(115, 225, 255, 0.75);
+}
+
+#crosshair::before {
+  width: 18px;
+  height: 2px;
+}
+
+#crosshair::after {
+  width: 2px;
+  height: 18px;
+}
+
+@media (max-width: 700px) {
+  #hud {
+    width: calc(100vw - 24px);
+    top: 12px;
+    left: 12px;
+    padding: 14px;
+  }
+
+  #title {
+    font-size: 22px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="game-root"></div>
+<div id="crosshair"></div>
+
+<section id="hud">
+  <h1 id="title">Treasure Shift</h1>
+  <p id="subtitle">Explore three different treasure zones, collect every relic in each area, then step into the portal to reach the next level.</p>
+  <div class="stat"><span class="label">Player:</span> Ethan Lee</div>
+  <div class="stat"><span class="label">Contact:</span> ethalee@ucsc.edu</div>
+  <div class="stat" id="level">Level: 1 / 3</div>
+  <div class="stat" id="progress">Treasures: 0 / 4</div>
+  <div class="stat" id="fps">FPS: --</div>
+  <p id="hint">Click start, use the mouse to look around, and collect every glowing relic you can find.</p>
+  <button id="launch" type="button">Start Exploring</button>
+  <div id="controls">Controls: W A S D move, mouse look, Space jump. The portal unlocks after you collect all treasure in a level.</div>
+</section>
+
+<script type="module" src="./src/ColoredPoints.js"></script>
+</body>
+</html>

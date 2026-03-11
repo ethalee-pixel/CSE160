@@ -1,0 +1,8 @@
+newmtl TentCloth
+Ka 0.2000 0.2000 0.2000
+Kd 0.8200 0.7800 0.6400
+Ks 0.0500 0.0500 0.0500
+Ns 10.0000
+d 1.0000
+illum 2
+map_Kd tent-cloth.svg

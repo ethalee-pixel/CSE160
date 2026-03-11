@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Treasure Shift</title>
+
+<!-- Submission site link: paste your deployed URL here before turning it in, for example https://your-site-link-here -->
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+:root {
+  --panel: rgba(7, 19, 28, 0.76);
+  --panel-border: rgba(163, 212, 255, 0.28);
+  --accent: #9fe7ff;
+  --text: #eef7ff;
+  --muted: #bfd0dd;
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(28, 70, 104, 0.45), transparent 38%),
+    linear-gradient(180deg, #06121a 0%, #0d1b26 48%, #050a0f 100%);
+  color: var(--text);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+#game-root {
+  width: 100vw;
+  height: 100vh;
+}
+
+canvas {
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 34px var(--shadow);
+  z-index: 10;
+}
+
+#title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#subtitle {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.stat {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+#hint {
+  margin: 12px 0 14px;
+  color: #fff0ba;
+  min-height: 40px;
+  line-height: 1.4;
+}
+
+#launch,
+#reset-position {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  color: #12202c;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#launch {
+  background: linear-gradient(135deg, #8ad5ff 0%, #ffe08c 100%);
+}
+
+#reset-position {
+  margin-top: 8px;
+  background: linear-gradient(135deg, #bde7ff 0%, #ffd6a6 100%);
+}
+
+#launch:hover,
+#reset-position:hover {
+  filter: brightness(1.04);
+}
+
+#controls {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#feature-panel,
+#grader-notes,
+#extra-notes,
+#wow-notes {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(163, 212, 255, 0.18);
+}
+
+#feature-panel h2,
+#grader-notes h2,
+#extra-notes h2,
+#wow-notes h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.toggle input {
+  accent-color: #8ad5ff;
+}
+
+#grader-notes ul,
+#extra-notes ul,
+#wow-notes ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+#grader-notes li + li,
+#extra-notes li + li,
+#wow-notes li + li {
+  margin-top: 6px;
+}
+
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 12px rgba(115, 225, 255, 0.75);
+}
+
+#crosshair::before {
+  width: 18px;
+  height: 2px;
+}
+
+#crosshair::after {
+  width: 2px;
+  height: 18px;
+}
+
+@media (max-width: 700px) {
+  #hud {
+    width: calc(100vw - 24px);
+    top: 12px;
+    left: 12px;
+    padding: 14px;
+  }
+
+  #title {
+    font-size: 22px;
+  }
+
+  .toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div id="game-root"></div>
+<div id="crosshair"></div>
+
+<section id="hud">
+  <h1 id="title">Treasure Shift</h1>
+  <p id="subtitle">Explore three different treasure zones, work through harder maze-style routes, collect every relic, and use special vases to survive the more dramatic lighting and portal effects.</p>
+  <div class="stat"><span class="label">Name:</span> Ethan Lee</div>
+  <div class="stat"><span class="label">Email:</span> ethalee@ucsc.edu</div>
+  <div class="stat" id="level">Level: 1 / 3</div>
+  <div class="stat" id="progress">Treasures: 0 / 4</div>
+  <div class="stat" id="fps">FPS: --</div>
+  <p id="hint">Click start, use the mouse to look around, and collect every glowing relic you can find.</p>
+  <button id="launch" type="button">Start Exploring</button>
+  <button id="reset-position" type="button">Teleport To Start</button>
+  <div id="controls">Controls: W A S D move, mouse look, Space jump. Jump boost lets you climb onto wall tops, and the portal unlocks after you collect all treasure in a level.</div>
+
+  <section id="feature-panel">
+    <h2>Feature Toggles</h2>
+    <div class="toggle-grid">
+      <label class="toggle"><input id="toggle-lighting" type="checkbox" checked /> Lighting</label>
+      <label class="toggle"><input id="toggle-normals" type="checkbox" /> Normals</label>
+      <label class="toggle"><input id="toggle-ambient-light" type="checkbox" checked /> Ambient Light</label>
+      <label class="toggle"><input id="toggle-hemisphere-light" type="checkbox" checked /> Hemisphere Light</label>
+      <label class="toggle"><input id="toggle-directional-light" type="checkbox" checked /> Directional Light</label>
+      <label class="toggle"><input id="toggle-point-light" type="checkbox" checked /> Point Lights + Cubes</label>
+      <label class="toggle"><input id="toggle-spot-light" type="checkbox" checked /> Spot Light</label>
+      <label class="toggle"><input id="toggle-light-animation" type="checkbox" checked /> Light Animation</label>
+    </div>
+  </section>
+
+  <section id="grader-notes">
+    <h2>Grader Checklist</h2>
+    <ul>
+      <li>Basic scene: the world uses more than 3 primary shapes, including cubes, spheres, cylinders, cones, and torus forms, with animated treasure, portal, tower ring, and flame objects.</li>
+      <li>Directional light + perspective camera: a directional sun light is active in the scene, and the view uses a Three.js PerspectiveCamera.</li>
+      <li>Textured primary shapes: textured grass ground, wall blocks, and tree foliage/trunks are visible in the world.</li>
+      <li>Custom textured 3D model: the outpost tent is loaded from OBJ + MTL files.</li>
+      <li>Camera controls: pointer lock mouse look plus W A S D movement and Space to jump.</li>
+      <li>At least 3 light sources: ambient, hemisphere, directional, point, and spot lights are all included, and the toggle panel lets you verify them individually.</li>
+      <li>Skybox: a six-face skybox surrounds the scene.</li>
+      <li>At least 20 primary shapes: there are well over 20 visible meshes across the three playable levels.</li>
+      <li>Maze gameplay update: each level now uses denser wall layouts so the treasures are deeper in side paths and more difficult to find.</li>
+    </ul>
+  </section>
+
+  <section id="extra-notes">
+    <h2>Extra Features</h2>
+    <ul>
+      <li>Playable 3-level treasure hunt structure with portal progression and replay support.</li>
+      <li>Four vase effects: speed boost, blackout trap, jump boost, and oracle reveal glow.</li>
+      <li>Teleport-to-start rescue button so players can recover if they get stuck in the maze.</li>
+      <li>Animated lighting controls with visible point-light cubes so the grader can verify the light setup directly.</li>
+    </ul>
+  </section>
+
+  <section id="wow-notes">
+    <h2>WOW Features</h2>
+    <ul>
+      <li>Harder maze-style layouts that make relic hunting feel more like exploration instead of open wandering.</li>
+      <li>Jump boost now lets the player land on and traverse wall tops, opening alternate routes through the maze.</li>
+      <li>Animated crystal beacons with floating cores, rotating rings, and pulsing light columns.</li>
+      <li>Moving firefly swarms and atmospheric fog to make the world feel more alive.</li>
+      <li>The scene combines lighting, animated props, maze navigation, and vertical traversal into a more dramatic adventure-space instead of a simple object showcase.</li>
+    </ul>
+  </section>
+</section>
+
+<script type="module" src="./ColoredPoints.js"></script>
+</body>
+</html>
